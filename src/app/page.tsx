@@ -37,6 +37,18 @@ const MUSIC = [
   { id: 'calm', name: 'Gentle', emoji: '🌊' },
 ];
 
+const ASPECT_RATIOS = [
+  { id: '9:16', name: 'TikTok/Reels', desc: '9:16 vertical', width: 1024, height: 1792 },
+  { id: '16:9', name: 'YouTube', desc: '16:9 horizontal', width: 1792, height: 1024 },
+  { id: '1:1', name: 'Instagram', desc: '1:1 square', width: 1024, height: 1024 },
+];
+
+const DURATIONS = [
+  { id: 'short', name: '~30s', scenes: 4, desc: '4 scenes' },
+  { id: 'medium', name: '~60s', scenes: 6, desc: '6 scenes' },
+  { id: 'long', name: '~90s', scenes: 8, desc: '8 scenes' },
+];
+
 interface Project {
   id: string;
   status: string;
@@ -52,8 +64,15 @@ export default function Home() {
   const [style, setStyle] = useState('realistic');
   const [voice, setVoice] = useState('rachel');
   const [music, setMusic] = useState('none');
+  const [aspectRatio, setAspectRatio] = useState('9:16');
+  const [duration, setDuration] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
+
+  // Calculate estimated cost
+  const selectedDuration = DURATIONS.find(d => d.id === duration);
+  const numScenes = selectedDuration?.scenes || 6;
+  const estimatedCost = (0.01 + (numScenes * 0.04) + 0.03).toFixed(2); // Script + images + voice
 
   const handleGenerate = async () => {
     if (!topic.trim()) return;
@@ -65,7 +84,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, style, voice, music }),
+        body: JSON.stringify({ topic, style, voice, music, aspectRatio, duration }),
       });
       
       const data = await res.json();
@@ -198,6 +217,62 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Aspect Ratio & Duration Row */}
+          <div className="mt-6 grid grid-cols-2 gap-6">
+            {/* Aspect Ratio */}
+            <div>
+              <label className="block text-lg font-medium mb-3">Format</label>
+              <div className="space-y-2">
+                {ASPECT_RATIOS.map((ar) => (
+                  <button
+                    key={ar.id}
+                    onClick={() => setAspectRatio(ar.id)}
+                    className={`w-full p-3 rounded-xl border transition-all text-left ${
+                      aspectRatio === ar.id
+                        ? 'border-purple-500 bg-purple-500/20'
+                        : 'border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    <div className="font-medium">{ar.name}</div>
+                    <div className="text-xs text-gray-400">{ar.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div>
+              <label className="block text-lg font-medium mb-3">Length</label>
+              <div className="space-y-2">
+                {DURATIONS.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => setDuration(d.id)}
+                    className={`w-full p-3 rounded-xl border transition-all text-left ${
+                      duration === d.id
+                        ? 'border-purple-500 bg-purple-500/20'
+                        : 'border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    <div className="font-medium">{d.name}</div>
+                    <div className="text-xs text-gray-400">{d.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Cost Estimate */}
+          <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Estimated cost:</span>
+              <span className="text-xl font-bold text-green-400">~${estimatedCost}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {numScenes} images + voiceover + script generation
+            </div>
+          </div>
+
           {/* Generate Button */}
           <button
             onClick={handleGenerate}
@@ -210,7 +285,7 @@ export default function Home() {
 
         {/* Progress Section */}
         {project && (
-          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10">
+          <div className={`bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 ${project.status !== 'complete' && project.status !== 'error' ? 'animate-pulse-glow' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <span className="font-medium">
                 {project.status === 'generating_script' && '📝 Writing script...'}
@@ -223,9 +298,9 @@ export default function Home() {
               <span className="text-purple-400">{project.progress}%</span>
             </div>
             
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-3 bg-white/10 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                className="h-full progress-bar transition-all duration-500 rounded-full"
                 style={{ width: `${project.progress}%` }}
               />
             </div>
@@ -261,15 +336,44 @@ export default function Home() {
                         src={project.videoUrl} 
                         controls
                         autoPlay
+                        loop
+                        playsInline
                         className="w-full rounded-lg shadow-2xl"
                       />
-                      <a
-                        href={project.videoUrl}
-                        download
-                        className="mt-4 block w-full py-3 text-center bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold hover:from-green-500 hover:to-emerald-500 transition-all"
-                      >
-                        📥 Download Video
-                      </a>
+                      <div className="mt-4 space-y-3">
+                        <a
+                          href={project.videoUrl}
+                          download
+                          className="block w-full py-3 text-center bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold hover:from-green-500 hover:to-emerald-500 transition-all"
+                        >
+                          📥 Download Video
+                        </a>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => navigator.clipboard.writeText(window.location.origin + project.videoUrl)}
+                            className="flex-1 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all text-sm"
+                          >
+                            📋 Copy Link
+                          </button>
+                          <a
+                            href={`https://twitter.com/intent/tweet?text=Check out this AI-generated video!&url=${encodeURIComponent(window.location.origin + (project.videoUrl || ''))}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all text-sm text-center"
+                          >
+                            🐦 Share
+                          </a>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setProject(null);
+                            setTopic('');
+                          }}
+                          className="w-full py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-all text-sm"
+                        >
+                          ✨ Create Another
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <>

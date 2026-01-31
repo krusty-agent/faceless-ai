@@ -82,6 +82,8 @@ export interface VideoProject {
   style: string;
   voice: string;
   music: string;
+  aspectRatio: string;
+  duration: string;
   scenes: VideoScene[];
   status: 'pending' | 'generating_script' | 'generating_images' | 'generating_audio' | 'assembling' | 'complete' | 'error';
   progress: number;
@@ -90,6 +92,20 @@ export interface VideoProject {
   error?: string;
 }
 
+// Aspect ratio configurations
+const ASPECT_CONFIGS: Record<string, { width: number; height: number; dalleSize: '1024x1024' | '1024x1792' | '1792x1024' }> = {
+  '9:16': { width: 1080, height: 1920, dalleSize: '1024x1792' },
+  '16:9': { width: 1920, height: 1080, dalleSize: '1792x1024' },
+  '1:1': { width: 1080, height: 1080, dalleSize: '1024x1024' },
+};
+
+// Duration configurations (number of scenes)
+const DURATION_SCENES: Record<string, number> = {
+  'short': 4,
+  'medium': 6,
+  'long': 8,
+};
+
 // In-memory storage (replace with DB in production)
 const projects = new Map<string, VideoProject>();
 
@@ -97,18 +113,19 @@ export function getProject(id: string): VideoProject | undefined {
   return projects.get(id);
 }
 
-export async function generateScript(topic: string, style: string): Promise<VideoScene[]> {
+export async function generateScript(topic: string, style: string, numScenes: number = 6): Promise<VideoScene[]> {
   if (MOCK_MODE) {
     console.log('[MOCK] Generating script for:', topic);
     await delay(2000); // Simulate API delay
-    return MOCK_SCENES;
+    return MOCK_SCENES.slice(0, numScenes);
   }
 
+  const totalDuration = numScenes * 8; // ~8 seconds per scene
   const systemPrompt = `You are a viral video scriptwriter. Create engaging, hook-driven scripts for short-form video content.
         
 Style: ${style}
 
-Output ONLY a JSON array of 5-8 scenes. Each scene should be 5-10 seconds of narration.
+Output ONLY a JSON array of EXACTLY ${numScenes} scenes. Each scene should be 6-10 seconds of narration.
 Format:
 [
   {
@@ -119,11 +136,11 @@ Format:
 ]
 
 Rules:
-- Start with a strong hook
+- Start with a strong hook that grabs attention in the first 2 seconds
 - Keep sentences short and punchy
 - Each scene should be visually distinct
 - Image prompts should be detailed and cinematic
-- Total video should be 45-60 seconds
+- Total video should be ~${totalDuration} seconds
 - Output ONLY valid JSON, no other text`;
 
   const response = await getAnthropic().messages.create({
@@ -153,7 +170,11 @@ Rules:
 
 let mockImageIndex = 0;
 
-export async function generateImage(prompt: string, style: string): Promise<string> {
+export async function generateImage(
+  prompt: string, 
+  style: string, 
+  dalleSize: '1024x1024' | '1024x1792' | '1792x1024' = '1024x1792'
+): Promise<string> {
   if (MOCK_MODE) {
     console.log('[MOCK] Generating image for:', prompt.slice(0, 50));
     await delay(1500); // Simulate API delay
@@ -169,7 +190,7 @@ export async function generateImage(prompt: string, style: string): Promise<stri
     model: 'dall-e-3',
     prompt: styledPrompt,
     n: 1,
-    size: '1024x1792', // Vertical for TikTok/Shorts (closest to 9:16)
+    size: dalleSize,
     quality: 'standard',
   });
   
@@ -228,7 +249,14 @@ export async function generateSpeech(text: string, voice: string = 'rachel'): Pr
   return Buffer.concat(chunks);
 }
 
-export async function createVideoProject(topic: string, style: string, voice: string, music: string = 'none'): Promise<string> {
+export async function createVideoProject(
+  topic: string, 
+  style: string, 
+  voice: string, 
+  music: string = 'none',
+  aspectRatio: string = '9:16',
+  duration: string = 'medium'
+): Promise<string> {
   const id = uuidv4();
   
   const project: VideoProject = {
@@ -237,6 +265,8 @@ export async function createVideoProject(topic: string, style: string, voice: st
     style,
     voice,
     music,
+    aspectRatio,
+    duration,
     scenes: [],
     status: 'pending',
     progress: 0,
@@ -260,11 +290,15 @@ async function processVideo(id: string): Promise<void> {
   const project = projects.get(id);
   if (!project) throw new Error('Project not found');
   
+  // Get aspect ratio and duration configs
+  const aspectConfig = ASPECT_CONFIGS[project.aspectRatio] || ASPECT_CONFIGS['9:16'];
+  const numScenes = DURATION_SCENES[project.duration] || 6;
+  
   try {
     // Step 1: Generate script
     project.status = 'generating_script';
     project.progress = 10;
-    project.scenes = await generateScript(project.topic, project.style);
+    project.scenes = await generateScript(project.topic, project.style, numScenes);
     project.progress = 20;
     
     // Step 2: Generate images for each scene
@@ -273,7 +307,7 @@ async function processVideo(id: string): Promise<void> {
     
     for (let i = 0; i < project.scenes.length; i++) {
       const scene = project.scenes[i];
-      const imageUrl = await generateImage(scene.imagePrompt, project.style);
+      const imageUrl = await generateImage(scene.imagePrompt, project.style, aspectConfig.dalleSize);
       imageUrls.push(imageUrl);
       project.progress = 20 + ((i + 1) / project.scenes.length) * 40;
     }
@@ -308,6 +342,8 @@ async function processVideo(id: string): Promise<void> {
       const musicUrl = musicTrack && musicTrack.id !== 'none' ? musicTrack.url : undefined;
       
       const result = await assembleVideo(scenesWithUrls, audioBuffer, {
+        width: aspectConfig.width,
+        height: aspectConfig.height,
         addCaptions: true,
         musicUrl,
         musicVolume: 0.15, // Background music at 15% volume
