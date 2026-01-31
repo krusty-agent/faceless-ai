@@ -1,10 +1,13 @@
 import OpenAI from 'openai';
 import Replicate from 'replicate';
 import { v4 as uuidv4 } from 'uuid';
+import { assembleVideo } from './video-assembler';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
 let replicate: Replicate | null = null;
+
+const MOCK_MODE = process.env.MOCK_MODE === 'true' || (!process.env.OPENAI_API_KEY && !process.env.REPLICATE_API_TOKEN);
 
 function getOpenAI(): OpenAI {
   if (!openai) {
@@ -19,6 +22,25 @@ function getReplicate(): Replicate {
   }
   return replicate;
 }
+
+// Mock data for testing without API keys
+const MOCK_SCENES: VideoScene[] = [
+  { text: "Did you know the ancient Mayans predicted solar eclipses with incredible accuracy?", imagePrompt: "Ancient Mayan observatory with starry night sky", duration: 6 },
+  { text: "But one day, their entire civilization just... vanished.", imagePrompt: "Abandoned Mayan temple overtaken by jungle", duration: 5 },
+  { text: "Theories range from drought to warfare to disease.", imagePrompt: "Dried cracked earth with Mayan ruins in background", duration: 5 },
+  { text: "But the truth might be even stranger.", imagePrompt: "Mysterious glowing symbols on Mayan stone wall", duration: 4 },
+  { text: "What really happened to the Maya?", imagePrompt: "Mayan calendar stone with dramatic lighting", duration: 4 },
+];
+
+const MOCK_IMAGES = [
+  "https://images.unsplash.com/photo-1518638150340-f706e86654de?w=1080&h=1920&fit=crop",
+  "https://images.unsplash.com/photo-1568402102990-bc541580b59f?w=1080&h=1920&fit=crop",
+  "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1080&h=1920&fit=crop",
+  "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?w=1080&h=1920&fit=crop",
+  "https://images.unsplash.com/photo-1464817739973-0128fe77aaa1?w=1080&h=1920&fit=crop",
+];
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export interface VideoScene {
   text: string;
@@ -35,6 +57,7 @@ export interface VideoProject {
   status: 'pending' | 'generating_script' | 'generating_images' | 'generating_audio' | 'assembling' | 'complete' | 'error';
   progress: number;
   videoUrl?: string;
+  imageUrls?: string[];
   error?: string;
 }
 
@@ -46,6 +69,12 @@ export function getProject(id: string): VideoProject | undefined {
 }
 
 export async function generateScript(topic: string, style: string): Promise<VideoScene[]> {
+  if (MOCK_MODE) {
+    console.log('[MOCK] Generating script for:', topic);
+    await delay(2000); // Simulate API delay
+    return MOCK_SCENES;
+  }
+
   const response = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -88,7 +117,17 @@ Rules:
   return parsed.scenes || parsed;
 }
 
+let mockImageIndex = 0;
+
 export async function generateImage(prompt: string, style: string): Promise<string> {
+  if (MOCK_MODE) {
+    console.log('[MOCK] Generating image for:', prompt.slice(0, 50));
+    await delay(1500); // Simulate API delay
+    const url = MOCK_IMAGES[mockImageIndex % MOCK_IMAGES.length];
+    mockImageIndex++;
+    return url;
+  }
+
   const styledPrompt = `${prompt}, ${getStyleSuffix(style)}`;
   
   const output = await getReplicate().run(
@@ -122,6 +161,22 @@ function getStyleSuffix(style: string): string {
 }
 
 export async function generateSpeech(text: string, voice: string = 'alloy'): Promise<Buffer> {
+  if (MOCK_MODE) {
+    console.log('[MOCK] Generating speech for:', text.slice(0, 50));
+    await delay(1500);
+    // Return a minimal valid MP3 (silent 1-second audio)
+    // This is a tiny valid MP3 header + silence
+    const silentMp3 = Buffer.from([
+      0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ]);
+    // Repeat to make ~30 seconds of "audio" at low bitrate
+    const chunks = Array(500).fill(silentMp3);
+    return Buffer.concat(chunks);
+  }
+
   const mp3 = await getOpenAI().audio.speech.create({
     model: 'tts-1',
     voice: voice as 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer',
@@ -169,7 +224,7 @@ async function processVideo(id: string): Promise<void> {
     project.status = 'generating_script';
     project.progress = 10;
     project.scenes = await generateScript(project.topic, project.style);
-    project.progress = 25;
+    project.progress = 20;
     
     // Step 2: Generate images for each scene
     project.status = 'generating_images';
@@ -179,28 +234,47 @@ async function processVideo(id: string): Promise<void> {
       const scene = project.scenes[i];
       const imageUrl = await generateImage(scene.imagePrompt, project.style);
       imageUrls.push(imageUrl);
-      project.progress = 25 + ((i + 1) / project.scenes.length) * 35;
+      project.progress = 20 + ((i + 1) / project.scenes.length) * 40;
     }
     
     // Step 3: Generate audio
     project.status = 'generating_audio';
+    project.progress = 65;
     const fullScript = project.scenes.map(s => s.text).join(' ');
     const audioBuffer = await generateSpeech(fullScript, project.voice);
-    project.progress = 75;
+    project.progress = 80;
     
-    // Step 4: Assemble video (placeholder - would use FFmpeg)
+    // Step 4: Assemble video with FFmpeg
     project.status = 'assembling';
-    project.progress = 90;
+    project.progress = 85;
     
-    // For MVP, we'll just store the assets and assemble client-side
-    // or use a service like Creatomate/Shotstack
-    project.videoUrl = imageUrls[0]; // Placeholder
+    if (MOCK_MODE) {
+      // In mock mode, skip FFmpeg assembly - just use first image as preview
+      console.log('[MOCK] Skipping video assembly');
+      await delay(2000);
+      // Store image URLs for preview carousel
+      project.imageUrls = imageUrls;
+      project.videoUrl = imageUrls[0]; // First image as placeholder
+    } else {
+      const scenesWithUrls = project.scenes.map((scene, i) => ({
+        imageUrl: imageUrls[i],
+        text: scene.text,
+        duration: scene.duration,
+      }));
+      
+      const result = await assembleVideo(scenesWithUrls, audioBuffer, {
+        addCaptions: true,
+      });
+      
+      project.videoUrl = result.videoPath;
+    }
     project.progress = 100;
     project.status = 'complete';
     
   } catch (error) {
     project.status = 'error';
     project.error = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Video generation error:', error);
   }
 }
 

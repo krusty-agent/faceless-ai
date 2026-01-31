@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 
+const EXAMPLE_TOPICS = [
+  "The mysterious disappearance of the Mayan civilization",
+  "5 psychological tricks that stores use to make you buy more",
+  "What would happen if the Moon disappeared tonight",
+  "The terrifying last hours of Pompeii",
+  "Why you should NEVER swim in these lakes",
+  "The real reason why ancient Egyptians were obsessed with cats",
+];
+
 const STYLES = [
   { id: 'realistic', name: 'Realistic', emoji: '📸' },
   { id: 'anime', name: 'Anime', emoji: '🎌' },
@@ -26,6 +35,7 @@ interface Project {
   progress: number;
   scenes?: { text: string; imagePrompt: string }[];
   videoUrl?: string;
+  imageUrls?: string[];
   error?: string;
 }
 
@@ -98,6 +108,17 @@ export default function Home() {
           <label className="block text-lg font-medium mb-3">
             What's your video about?
           </label>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {EXAMPLE_TOPICS.slice(0, 3).map((ex, i) => (
+              <button
+                key={i}
+                onClick={() => setTopic(ex)}
+                className="text-xs px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 rounded-full border border-purple-500/30 transition-all"
+              >
+                {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
+              </button>
+            ))}
+          </div>
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
@@ -200,12 +221,54 @@ export default function Home() {
 
             {project.videoUrl && (
               <div className="mt-6">
-                <h3 className="font-medium mb-3">Preview:</h3>
-                <img 
-                  src={project.videoUrl} 
-                  alt="Video preview" 
-                  className="w-full max-w-sm mx-auto rounded-lg"
-                />
+                <h3 className="font-medium mb-3">
+                  {project.videoUrl.endsWith('.mp4') ? 'Your Video:' : 'Preview (Demo Mode):'}
+                </h3>
+                <div className="max-w-sm mx-auto">
+                  {project.videoUrl.endsWith('.mp4') ? (
+                    <>
+                      <video 
+                        src={project.videoUrl} 
+                        controls
+                        autoPlay
+                        className="w-full rounded-lg shadow-2xl"
+                      />
+                      <a
+                        href={project.videoUrl}
+                        download
+                        className="mt-4 block w-full py-3 text-center bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold hover:from-green-500 hover:to-emerald-500 transition-all"
+                      >
+                        📥 Download Video
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      {project.imageUrls && project.imageUrls.length > 0 ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-2">
+                            {project.imageUrls.map((url, i) => (
+                              <img 
+                                key={i}
+                                src={url} 
+                                alt={`Scene ${i + 1}`}
+                                className="w-full aspect-[9/16] object-cover rounded-lg"
+                              />
+                            ))}
+                          </div>
+                          <div className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-200 text-sm">
+                            🎭 Demo Mode: Add API keys to generate real videos with AI voiceover
+                          </div>
+                        </div>
+                      ) : (
+                        <img 
+                          src={project.videoUrl} 
+                          alt="Preview" 
+                          className="w-full rounded-lg shadow-2xl"
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>
