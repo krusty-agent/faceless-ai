@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import Replicate from 'replicate';
+import Anthropic from '@anthropic-ai/sdk';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { v4 as uuidv4 } from 'uuid';
 import { assembleVideo } from './video-assembler';
@@ -7,10 +7,10 @@ import { getMusicTrack } from './music';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
-let replicate: Replicate | null = null;
+let anthropic: Anthropic | null = null;
 let elevenlabs: ElevenLabsClient | null = null;
 
-const MOCK_MODE = process.env.MOCK_MODE === 'true' || (!process.env.OPENAI_API_KEY && !process.env.REPLICATE_API_TOKEN && !process.env.ELEVENLABS_API_KEY);
+const MOCK_MODE = process.env.MOCK_MODE === 'true' || (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.ELEVENLABS_API_KEY);
 
 function getOpenAI(): OpenAI {
   if (!openai) {
@@ -19,11 +19,11 @@ function getOpenAI(): OpenAI {
   return openai;
 }
 
-function getReplicate(): Replicate {
-  if (!replicate) {
-    replicate = new Replicate({ auth: process.env.REPLICATE_API_TOKEN });
+function getAnthropic(): Anthropic {
+  if (!anthropic) {
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
-  return replicate;
+  return anthropic;
 }
 
 function getElevenLabs(): ElevenLabsClient {
@@ -104,16 +104,11 @@ export async function generateScript(topic: string, style: string): Promise<Vide
     return MOCK_SCENES;
   }
 
-  const response = await getOpenAI().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: `You are a viral video scriptwriter. Create engaging, hook-driven scripts for short-form video content.
+  const systemPrompt = `You are a viral video scriptwriter. Create engaging, hook-driven scripts for short-form video content.
         
 Style: ${style}
 
-Output a JSON array of 5-8 scenes. Each scene should be 5-10 seconds of narration.
+Output ONLY a JSON array of 5-8 scenes. Each scene should be 5-10 seconds of narration.
 Format:
 [
   {
@@ -128,22 +123,32 @@ Rules:
 - Keep sentences short and punchy
 - Each scene should be visually distinct
 - Image prompts should be detailed and cinematic
-- Total video should be 45-60 seconds`
-      },
+- Total video should be 45-60 seconds
+- Output ONLY valid JSON, no other text`;
+
+  const response = await getAnthropic().messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    system: systemPrompt,
+    messages: [
       {
         role: 'user',
         content: `Create a viral short video script about: ${topic}`
       }
     ],
-    response_format: { type: 'json_object' },
-    temperature: 0.8,
   });
 
-  const content = response.choices[0]?.message?.content;
-  if (!content) throw new Error('No script generated');
+  const content = response.content[0];
+  if (content.type !== 'text') throw new Error('No script generated');
   
-  const parsed = JSON.parse(content);
-  return parsed.scenes || parsed;
+  // Extract JSON from response (handle potential markdown code blocks)
+  let jsonStr = content.text.trim();
+  if (jsonStr.startsWith('```')) {
+    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+  }
+  
+  const parsed = JSON.parse(jsonStr);
+  return Array.isArray(parsed) ? parsed : parsed.scenes || [];
 }
 
 let mockImageIndex = 0;
@@ -159,22 +164,19 @@ export async function generateImage(prompt: string, style: string): Promise<stri
 
   const styledPrompt = `${prompt}, ${getStyleSuffix(style)}`;
   
-  const output = await getReplicate().run(
-    "black-forest-labs/flux-schnell",
-    {
-      input: {
-        prompt: styledPrompt,
-        num_outputs: 1,
-        aspect_ratio: "9:16", // Vertical for TikTok/Shorts
-        output_format: "webp",
-        output_quality: 90,
-      }
-    }
-  );
+  // Use DALL-E 3 for image generation
+  const response = await getOpenAI().images.generate({
+    model: 'dall-e-3',
+    prompt: styledPrompt,
+    n: 1,
+    size: '1024x1792', // Vertical for TikTok/Shorts (closest to 9:16)
+    quality: 'standard',
+  });
   
-  // Flux returns an array of URLs
-  const urls = output as string[];
-  return urls[0];
+  if (!response.data || !response.data[0]?.url) {
+    throw new Error('No image generated');
+  }
+  return response.data[0].url;
 }
 
 function getStyleSuffix(style: string): string {
