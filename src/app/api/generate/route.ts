@@ -4,7 +4,7 @@ import { createVideoProject } from '@/lib/video-generator';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { topic, style = 'realistic', voice = 'alloy' } = body;
+    const { topic, style = 'realistic', voice = 'alloy', music = 'none' } = body;
     
     if (!topic) {
       return NextResponse.json(
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const projectId = await createVideoProject(topic, style, voice);
+    const projectId = await createVideoProject(topic, style, voice, music);
     
     return NextResponse.json({ 
       success: true, 

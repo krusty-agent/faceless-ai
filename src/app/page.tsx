@@ -29,6 +29,14 @@ const VOICES = [
   { id: 'shimmer', name: 'Shimmer', desc: 'Soft' },
 ];
 
+const MUSIC = [
+  { id: 'none', name: 'No Music', emoji: '🔇' },
+  { id: 'dramatic-orchestral', name: 'Epic', emoji: '🎬' },
+  { id: 'mysterious', name: 'Dark', emoji: '🌙' },
+  { id: 'upbeat', name: 'Energy', emoji: '⚡' },
+  { id: 'calm', name: 'Gentle', emoji: '🌊' },
+];
+
 interface Project {
   id: string;
   status: string;
@@ -43,6 +51,7 @@ export default function Home() {
   const [topic, setTopic] = useState('');
   const [style, setStyle] = useState('realistic');
   const [voice, setVoice] = useState('alloy');
+  const [music, setMusic] = useState('none');
   const [loading, setLoading] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
 
@@ -56,7 +65,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, style, voice }),
+        body: JSON.stringify({ topic, style, voice, music }),
       });
       
       const data = await res.json();
@@ -163,6 +172,27 @@ export default function Home() {
                 >
                   <div className="font-medium">{v.name}</div>
                   <div className="text-xs text-gray-400">{v.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Music Selection */}
+          <div className="mt-6">
+            <label className="block text-lg font-medium mb-3">Background Music</label>
+            <div className="grid grid-cols-5 gap-3">
+              {MUSIC.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setMusic(m.id)}
+                  className={`p-3 rounded-xl border transition-all ${
+                    music === m.id
+                      ? 'border-purple-500 bg-purple-500/20'
+                      : 'border-white/10 hover:border-white/30'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{m.emoji}</div>
+                  <div className="text-xs">{m.name}</div>
                 </button>
               ))}
             </div>

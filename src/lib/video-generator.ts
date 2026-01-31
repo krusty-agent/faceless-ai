@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import Replicate from 'replicate';
 import { v4 as uuidv4 } from 'uuid';
 import { assembleVideo } from './video-assembler';
+import { getMusicTrack } from './music';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -53,6 +54,7 @@ export interface VideoProject {
   topic: string;
   style: string;
   voice: string;
+  music: string;
   scenes: VideoScene[];
   status: 'pending' | 'generating_script' | 'generating_images' | 'generating_audio' | 'assembling' | 'complete' | 'error';
   progress: number;
@@ -188,7 +190,7 @@ export async function generateSpeech(text: string, voice: string = 'alloy'): Pro
   return buffer;
 }
 
-export async function createVideoProject(topic: string, style: string, voice: string): Promise<string> {
+export async function createVideoProject(topic: string, style: string, voice: string, music: string = 'none'): Promise<string> {
   const id = uuidv4();
   
   const project: VideoProject = {
@@ -196,6 +198,7 @@ export async function createVideoProject(topic: string, style: string, voice: st
     topic,
     style,
     voice,
+    music,
     scenes: [],
     status: 'pending',
     progress: 0,
@@ -262,8 +265,14 @@ async function processVideo(id: string): Promise<void> {
         duration: scene.duration,
       }));
       
+      // Get music URL if selected
+      const musicTrack = getMusicTrack(project.music);
+      const musicUrl = musicTrack && musicTrack.id !== 'none' ? musicTrack.url : undefined;
+      
       const result = await assembleVideo(scenesWithUrls, audioBuffer, {
         addCaptions: true,
+        musicUrl,
+        musicVolume: 0.15, // Background music at 15% volume
       });
       
       project.videoUrl = result.videoPath;

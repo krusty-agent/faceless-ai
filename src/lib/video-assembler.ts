@@ -105,12 +105,16 @@ export async function assembleVideo(
     height?: number;
     outputPath?: string;
     addCaptions?: boolean;
+    musicUrl?: string;
+    musicVolume?: number; // 0.0 to 1.0
   } = {}
 ): Promise<AssemblyResult> {
   const {
     width = 1080,
     height = 1920,
     addCaptions = true,
+    musicUrl,
+    musicVolume = 0.2, // Background music at 20% volume by default
   } = options;
 
   // Create temp directory
@@ -165,24 +169,47 @@ export async function assembleVideo(
     ).join('\n') + `\nfile '${imageFiles[imageFiles.length - 1]}'`; // Last image repeated for concat demuxer
     await fs.writeFile(concatPath, concatContent);
 
-    // 7. Assemble video with FFmpeg
+    // 7. Download and prepare background music if provided
+    let musicPath = '';
+    if (musicUrl) {
+      musicPath = path.join(tempDir, 'music.mp3');
+      await downloadFile(musicUrl, musicPath);
+    }
+
+    // 8. Assemble video with FFmpeg
     let filterComplex = `[0:v]fps=30[v]`;
     if (addCaptions) {
       filterComplex = `[0:v]fps=30,ass='${subtitlePath.replace(/'/g, "'\\''")}'[v]`;
+    }
+
+    // Build audio filter for mixing voice + music
+    let audioFilter = '';
+    let audioMap = '-map 1:a';
+    
+    if (musicPath) {
+      // Mix voice (at full volume) with music (at musicVolume)
+      // Voice is input 1, music is input 2
+      const voiceVol = 1.0;
+      const musicVol = musicVolume;
+      audioFilter = `-filter_complex "[1:a]volume=${voiceVol}[voice];[2:a]volume=${musicVol}[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]"`;
+      audioMap = '-map "[aout]"';
     }
 
     const ffmpegCmd = [
       'ffmpeg -y',
       `-f concat -safe 0 -i "${concatPath}"`,
       `-i "${audioPath}"`,
-      `-filter_complex "${filterComplex}"`,
-      '-map "[v]" -map 1:a',
+      musicPath ? `-i "${musicPath}"` : '',
+      musicPath ? audioFilter : `-filter_complex "${filterComplex}"`,
+      musicPath ? `-filter_complex "${filterComplex}"` : '',
+      '-map "[v]"',
+      audioMap,
       '-c:v libx264 -preset fast -crf 23',
       '-c:a aac -b:a 192k',
       '-movflags +faststart',
       '-t', audioDuration.toString(),
       `"${outputPath}"`
-    ].join(' ');
+    ].filter(Boolean).join(' ');
 
     await execAsync(ffmpegCmd);
 
