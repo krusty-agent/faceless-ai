@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import Replicate from 'replicate';
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import { v4 as uuidv4 } from 'uuid';
 import { assembleVideo } from './video-assembler';
 import { getMusicTrack } from './music';
@@ -7,8 +8,9 @@ import { getMusicTrack } from './music';
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
 let replicate: Replicate | null = null;
+let elevenlabs: ElevenLabsClient | null = null;
 
-const MOCK_MODE = process.env.MOCK_MODE === 'true' || (!process.env.OPENAI_API_KEY && !process.env.REPLICATE_API_TOKEN);
+const MOCK_MODE = process.env.MOCK_MODE === 'true' || (!process.env.OPENAI_API_KEY && !process.env.REPLICATE_API_TOKEN && !process.env.ELEVENLABS_API_KEY);
 
 function getOpenAI(): OpenAI {
   if (!openai) {
@@ -23,6 +25,31 @@ function getReplicate(): Replicate {
   }
   return replicate;
 }
+
+function getElevenLabs(): ElevenLabsClient {
+  if (!elevenlabs) {
+    elevenlabs = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
+  }
+  return elevenlabs;
+}
+
+// ElevenLabs voice IDs - these are the default voices
+const ELEVENLABS_VOICES: Record<string, string> = {
+  'rachel': '21m00Tcm4TlvDq8ikWAM',    // Rachel - calm, female
+  'drew': '29vD33N1CtxCmqQRPOHJ',       // Drew - confident, male
+  'clyde': '2EiwWnXFnvU5JabPnv8n',      // Clyde - war veteran, male
+  'paul': '5Q0t7uMcjvnagumLfvZi',       // Paul - ground reporter, male
+  'domi': 'AZnzlk1XvdvUeBnXmlld',       // Domi - strong, female
+  'dave': 'CYw3kZ02Hs0563khs1Fj',       // Dave - conversational, male
+  'fin': 'D38z5RcWu1voky8WS1ja',        // Fin - sailor, male
+  'sarah': 'EXAVITQu4vr4xnSDxMaL',      // Sarah - soft, female
+  'antoni': 'ErXwobaYiN019PkySvjV',     // Antoni - crisp, male
+  'elli': 'MF3mGyEYCl7XYWbV9V6O',       // Elli - emotional, female
+  'josh': 'TxGEqnHWrfWFTfGW9XjX',       // Josh - deep, male
+  'arnold': 'VR6AewLTigWG4xSOukaG',     // Arnold - crisp, male
+  'adam': 'pNInz6obpgDQGcFmaJgB',       // Adam - deep, male
+  'sam': 'yoZ06aMxZJJ28mfd3POQ',        // Sam - dynamic, male
+};
 
 // Mock data for testing without API keys
 const MOCK_SCENES: VideoScene[] = [
@@ -162,32 +189,41 @@ function getStyleSuffix(style: string): string {
   return styles[style] || styles['realistic'];
 }
 
-export async function generateSpeech(text: string, voice: string = 'alloy'): Promise<Buffer> {
+export async function generateSpeech(text: string, voice: string = 'rachel'): Promise<Buffer> {
   if (MOCK_MODE) {
     console.log('[MOCK] Generating speech for:', text.slice(0, 50));
     await delay(1500);
     // Return a minimal valid MP3 (silent 1-second audio)
-    // This is a tiny valid MP3 header + silence
     const silentMp3 = Buffer.from([
       0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ]);
-    // Repeat to make ~30 seconds of "audio" at low bitrate
     const chunks = Array(500).fill(silentMp3);
     return Buffer.concat(chunks);
   }
 
-  const mp3 = await getOpenAI().audio.speech.create({
-    model: 'tts-1',
-    voice: voice as 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer',
-    input: text,
-    speed: 1.0,
-  });
+  // Use ElevenLabs for TTS
+  const voiceId = ELEVENLABS_VOICES[voice] || ELEVENLABS_VOICES['rachel'];
   
-  const buffer = Buffer.from(await mp3.arrayBuffer());
-  return buffer;
+  const audioStream = await getElevenLabs().textToSpeech.convert(voiceId, {
+    text,
+    modelId: 'eleven_multilingual_v2',
+    outputFormat: 'mp3_44100_128',
+  });
+
+  // Convert stream to Buffer
+  const reader = audioStream.getReader();
+  const chunks: Uint8Array[] = [];
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  
+  return Buffer.concat(chunks);
 }
 
 export async function createVideoProject(topic: string, style: string, voice: string, music: string = 'none'): Promise<string> {

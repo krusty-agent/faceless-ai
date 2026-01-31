@@ -21,12 +21,12 @@ const STYLES = [
 ];
 
 const VOICES = [
-  { id: 'alloy', name: 'Alloy', desc: 'Neutral' },
-  { id: 'echo', name: 'Echo', desc: 'Male' },
-  { id: 'fable', name: 'Fable', desc: 'British' },
-  { id: 'onyx', name: 'Onyx', desc: 'Deep' },
-  { id: 'nova', name: 'Nova', desc: 'Female' },
-  { id: 'shimmer', name: 'Shimmer', desc: 'Soft' },
+  { id: 'rachel', name: 'Rachel', desc: 'Calm F' },
+  { id: 'drew', name: 'Drew', desc: 'Confident M' },
+  { id: 'sarah', name: 'Sarah', desc: 'Soft F' },
+  { id: 'josh', name: 'Josh', desc: 'Deep M' },
+  { id: 'adam', name: 'Adam', desc: 'Narrator M' },
+  { id: 'elli', name: 'Elli', desc: 'Emotional F' },
 ];
 
 const MUSIC = [
@@ -50,7 +50,7 @@ interface Project {
 export default function Home() {
   const [topic, setTopic] = useState('');
   const [style, setStyle] = useState('realistic');
-  const [voice, setVoice] = useState('alloy');
+  const [voice, setVoice] = useState('rachel');
   const [music, setMusic] = useState('none');
   const [loading, setLoading] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
