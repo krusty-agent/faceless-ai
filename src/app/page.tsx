@@ -388,37 +388,47 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen p-4 sm:p-8">
+      <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-4 gradient-text">
+        <div className="text-center mb-12 pt-8">
+          <div className="inline-block mb-4">
+            <span className="badge mb-4">✨ AI-Powered Video Creation</span>
+          </div>
+          <h1 className="text-4xl sm:text-6xl font-bold mb-6 gradient-text tracking-tight">
             Faceless AI
           </h1>
-          <p className="text-xl text-gray-400">
-            Create viral TikTok & YouTube videos in seconds. No camera needed.
+          <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            Create viral TikTok & YouTube videos in seconds. 
+            <span className="text-gray-300"> No camera, no editing—just results.</span>
           </p>
           {/* History toggle */}
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+            className="mt-6 px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-full text-sm transition-all border border-white/10 hover:border-white/20"
           >
-            📚 {showHistory ? 'Hide' : 'Show'} History ({videoHistory.length})
+            📚 {showHistory ? 'Hide' : 'View'} History {videoHistory.length > 0 && `(${videoHistory.length})`}
           </button>
         </div>
 
         {/* Video History */}
         {showHistory && videoHistory.length > 0 && (
-          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10">
-            <h2 className="text-lg font-bold mb-4">📚 Recent Videos</h2>
+          <div className="glass-card p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <span className="text-2xl">📚</span> Your Creations
+              </h2>
+              <span className="text-sm text-gray-400">{videoHistory.length} videos</span>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {videoHistory.slice(0, 8).map((vid, i) => (
-                <div key={i} className="relative group">
+                <div key={i} className="video-preview group cursor-pointer">
                   {vid.videoUrl?.endsWith('.mp4') ? (
                     <video
                       src={vid.videoUrl}
-                      className="w-full aspect-[9/16] object-cover rounded-lg"
+                      className="w-full aspect-[9/16] object-cover rounded-2xl"
                       muted
+                      playsInline
                       onMouseEnter={(e) => e.currentTarget.play()}
                       onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                     />
@@ -426,25 +436,25 @@ export default function Home() {
                     <img
                       src={vid.imageUrls[0]}
                       alt="Preview"
-                      className="w-full aspect-[9/16] object-cover rounded-lg"
+                      className="w-full aspect-[9/16] object-cover rounded-2xl"
                     />
                   ) : (
-                    <div className="w-full aspect-[9/16] bg-white/10 rounded-lg flex items-center justify-center">
+                    <div className="w-full aspect-[9/16] bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center text-4xl">
                       🎬
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex flex-col items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 rounded-2xl flex flex-col items-center justify-end p-4 gap-3">
                     {vid.videoUrl?.endsWith('.mp4') && (
                       <a
                         href={vid.videoUrl}
                         download
-                        className="px-3 py-1 bg-purple-500 rounded text-sm"
+                        className="w-full py-2.5 bg-white text-black rounded-xl text-sm font-semibold text-center hover:bg-gray-100 transition-colors"
                       >
                         📥 Download
                       </a>
                     )}
-                    <span className="text-xs text-gray-300 px-2 text-center">
-                      {vid.topic?.slice(0, 30)}...
+                    <span className="text-xs text-gray-300 text-center line-clamp-2">
+                      {vid.topic?.slice(0, 40)}
                     </span>
                   </div>
                 </div>
@@ -454,36 +464,42 @@ export default function Home() {
         )}
 
         {/* Templates */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10">
-          <h2 className="text-lg font-bold mb-4">⚡ Quick Templates</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-2xl">⚡</span>
+            <h2 className="text-xl font-bold">Quick Start Templates</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {TEMPLATES.map((t) => (
               <button
                 key={t.id}
                 onClick={() => applyTemplate(t.id)}
-                className="p-3 rounded-xl border border-white/10 hover:border-purple-500 hover:bg-purple-500/10 transition-all text-left"
+                className="template-card p-4 rounded-2xl text-left group"
               >
-                <div className="text-xl mb-1">{t.name.split(' ')[0]}</div>
-                <div className="text-sm font-medium">{t.name.split(' ').slice(1).join(' ')}</div>
-                <div className="text-xs text-gray-400">{t.desc}</div>
+                <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">{t.name.split(' ')[0]}</div>
+                <div className="text-sm font-semibold text-white mb-1">{t.name.split(' ').slice(1).join(' ')}</div>
+                <div className="text-xs text-gray-400 leading-relaxed">{t.desc}</div>
               </button>
             ))}
           </div>
         </div>
 
+        <div className="section-divider"></div>
+
         {/* Input Section */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/10">
-          <label className="block text-lg font-medium mb-3">
+        <div className="glass-card p-6 sm:p-8 mb-8">
+          <label className="block text-xl font-semibold mb-2">
             What's your video about?
           </label>
-          <div className="mb-3 flex flex-wrap gap-2">
+          <p className="text-gray-400 text-sm mb-4">Enter a topic or click an example below</p>
+          <div className="mb-4 flex flex-wrap gap-2">
             {EXAMPLE_TOPICS.slice(0, 3).map((ex, i) => (
               <button
                 key={i}
                 onClick={() => setTopic(ex)}
-                className="text-xs px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 rounded-full border border-purple-500/30 transition-all"
+                className="text-xs px-4 py-2 bg-gradient-to-r from-purple-500/10 to-pink-500/10 hover:from-purple-500/20 hover:to-pink-500/20 rounded-full border border-purple-500/20 hover:border-purple-500/40 transition-all"
               >
-                {ex.length > 40 ? ex.slice(0, 40) + '...' : ex}
+                {ex.length > 45 ? ex.slice(0, 45) + '...' : ex}
               </button>
             ))}
           </div>
@@ -491,59 +507,52 @@ export default function Home() {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g., The mysterious disappearance of the Mayan civilization..."
-            className="w-full h-32 bg-black/30 rounded-xl p-4 text-white placeholder-gray-500 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+            className="input-glass h-32 resize-none text-lg"
           />
 
           {/* Style Selection */}
-          <div className="mt-6">
-            <label className="block text-lg font-medium mb-3">Style</label>
+          <div className="mt-8">
+            <label className="block text-lg font-semibold mb-4">Visual Style</label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
               {STYLES.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setStyle(s.id)}
-                  className={`p-3 rounded-xl border transition-all ${
-                    style === s.id
-                      ? 'border-purple-500 bg-purple-500/20'
-                      : 'border-white/10 hover:border-white/30'
-                  }`}
+                  className={`select-btn text-center ${style === s.id ? 'active' : ''}`}
                 >
-                  <div className="text-2xl mb-1">{s.emoji}</div>
-                  <div className="text-sm">{s.name}</div>
+                  <div className="text-3xl mb-2">{s.emoji}</div>
+                  <div className="text-sm font-medium">{s.name}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Voice Selection */}
-          <div className="mt-6">
-            <label className="block text-lg font-medium mb-3">Voice <span className="text-sm font-normal text-gray-400">(click 🔊 to preview)</span></label>
+          <div className="mt-8">
+            <label className="block text-lg font-semibold mb-1">Voice</label>
+            <p className="text-gray-400 text-sm mb-4">Click the speaker icon to preview</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {VOICES.map((v) => (
                 <div
                   key={v.id}
-                  className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
-                    voice === v.id
-                      ? 'border-purple-500 bg-purple-500/20'
-                      : 'border-white/10 hover:border-white/30'
-                  }`}
+                  className={`select-btn flex items-center justify-between ${voice === v.id ? 'active' : ''}`}
                 >
                   <button
                     onClick={() => setVoice(v.id)}
                     className="flex-1 text-left"
                   >
-                    <div className="font-medium">{v.name}</div>
-                    <div className="text-xs text-gray-400">{v.desc}</div>
+                    <div className="font-semibold">{v.name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{v.desc}</div>
                   </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       playVoicePreview(v.id);
                     }}
-                    className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    className={`ml-3 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                       playingVoice === v.id 
-                        ? 'bg-purple-500 text-white' 
-                        : 'bg-white/10 hover:bg-white/20'
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white scale-110' 
+                        : 'bg-white/10 hover:bg-white/20 hover:scale-105'
                     }`}
                     title={`Preview ${v.name}'s voice`}
                   >
@@ -554,74 +563,65 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Music Selection */}
-          <div className="mt-6">
-            <label className="block text-lg font-medium mb-3">Background Music</label>
-            <div className="grid grid-cols-5 gap-3">
-              {MUSIC.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setMusic(m.id)}
-                  className={`p-3 rounded-xl border transition-all ${
-                    music === m.id
-                      ? 'border-purple-500 bg-purple-500/20'
-                      : 'border-white/10 hover:border-white/30'
-                  }`}
-                >
-                  <div className="text-2xl mb-1">{m.emoji}</div>
-                  <div className="text-xs">{m.name}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Caption Style */}
-          <div className="mt-6">
-            <label className="block text-lg font-medium mb-3">Caption Style</label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-              {CAPTION_STYLES.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCaptionStyle(c.id)}
-                  className={`p-3 rounded-xl border transition-all ${
-                    captionStyle === c.id
-                      ? 'border-purple-500 bg-purple-500/20'
-                      : 'border-white/10 hover:border-white/30'
-                  }`}
-                >
-                  <div 
-                    className="text-sm font-bold mb-1"
-                    style={{ 
-                      color: c.color,
-                      textShadow: c.outline !== 'none' ? `2px 2px 0 ${c.outline}` : 'none'
-                    }}
+          {/* Music & Caption Row */}
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Music Selection */}
+            <div>
+              <label className="block text-lg font-semibold mb-4">Background Music</label>
+              <div className="grid grid-cols-5 gap-2">
+                {MUSIC.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setMusic(m.id)}
+                    className={`select-btn p-3 text-center ${music === m.id ? 'active' : ''}`}
                   >
-                    Aa
-                  </div>
-                  <div className="text-xs">{c.name}</div>
-                </button>
-              ))}
+                    <div className="text-2xl mb-1">{m.emoji}</div>
+                    <div className="text-xs font-medium">{m.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Caption Style */}
+            <div>
+              <label className="block text-lg font-semibold mb-4">Caption Style</label>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {CAPTION_STYLES.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setCaptionStyle(c.id)}
+                    className={`select-btn p-3 text-center ${captionStyle === c.id ? 'active' : ''}`}
+                  >
+                    <div 
+                      className="text-lg font-bold mb-1"
+                      style={{ 
+                        color: c.color,
+                        textShadow: c.outline !== 'none' ? `2px 2px 0 ${c.outline}` : 'none'
+                      }}
+                    >
+                      Aa
+                    </div>
+                    <div className="text-xs font-medium">{c.name}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Aspect Ratio & Duration Row */}
-          <div className="mt-6 grid grid-cols-2 gap-6">
+          <div className="mt-8 grid grid-cols-2 gap-6">
             {/* Aspect Ratio */}
             <div>
-              <label className="block text-lg font-medium mb-3">Format</label>
+              <label className="block text-lg font-semibold mb-4">Format</label>
               <div className="space-y-2">
                 {ASPECT_RATIOS.map((ar) => (
                   <button
                     key={ar.id}
                     onClick={() => setAspectRatio(ar.id)}
-                    className={`w-full p-3 rounded-xl border transition-all text-left ${
-                      aspectRatio === ar.id
-                        ? 'border-purple-500 bg-purple-500/20'
-                        : 'border-white/10 hover:border-white/30'
-                    }`}
+                    className={`select-btn w-full text-left ${aspectRatio === ar.id ? 'active' : ''}`}
                   >
-                    <div className="font-medium">{ar.name}</div>
-                    <div className="text-xs text-gray-400">{ar.desc}</div>
+                    <div className="font-semibold">{ar.name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{ar.desc}</div>
                   </button>
                 ))}
               </div>
@@ -629,20 +629,16 @@ export default function Home() {
 
             {/* Duration */}
             <div>
-              <label className="block text-lg font-medium mb-3">Length</label>
+              <label className="block text-lg font-semibold mb-4">Length</label>
               <div className="space-y-2">
                 {DURATIONS.map((d) => (
                   <button
                     key={d.id}
                     onClick={() => setDuration(d.id)}
-                    className={`w-full p-3 rounded-xl border transition-all text-left ${
-                      duration === d.id
-                        ? 'border-purple-500 bg-purple-500/20'
-                        : 'border-white/10 hover:border-white/30'
-                    }`}
+                    className={`select-btn w-full text-left ${duration === d.id ? 'active' : ''}`}
                   >
-                    <div className="font-medium">{d.name}</div>
-                    <div className="text-xs text-gray-400">{d.desc}</div>
+                    <div className="font-semibold">{d.name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{d.desc}</div>
                   </button>
                 ))}
               </div>
@@ -650,46 +646,69 @@ export default function Home() {
           </div>
 
           {/* Cost Estimate */}
-          <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
+          <div className="mt-8 p-5 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-2xl border border-green-500/20">
             <div className="flex justify-between items-center">
-              <span className="text-gray-400">Estimated cost:</span>
-              <span className="text-xl font-bold text-green-400">~${estimatedCost}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {numScenes} images + voiceover + script generation
+              <div>
+                <span className="text-gray-300 font-medium">Estimated cost</span>
+                <div className="text-xs text-gray-500 mt-1">
+                  {numScenes} images + voiceover + script
+                </div>
+              </div>
+              <span className="text-3xl font-bold text-green-400">~${estimatedCost}</span>
             </div>
           </div>
 
           {/* Generate Buttons */}
-          <div className="mt-8 flex gap-3">
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleGenerateScript}
               disabled={loading || scriptLoading || !topic.trim()}
-              className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-blue-500 hover:to-cyan-500 transition-all"
+              className="btn-secondary flex-1 py-4 rounded-2xl text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {scriptLoading ? '✍️ Writing...' : '✍️ Generate Script'}
+              {scriptLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Writing Script...
+                </span>
+              ) : '✍️ Generate Script'}
             </button>
             <button
               onClick={handleGenerate}
               disabled={loading || scriptLoading || !topic.trim()}
-              className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-500 hover:to-pink-500 transition-all"
+              className="btn-primary flex-1 py-4 rounded-2xl text-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Generating...' : '⚡ Quick Generate'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                  </svg>
+                  Creating Video...
+                </span>
+              ) : '⚡ Quick Generate'}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            💡 Use "Generate Script" to preview and edit before creating video
+          <p className="text-sm text-gray-500 mt-4 text-center">
+            💡 <span className="text-gray-400">Generate Script</span> lets you preview and edit before creating
           </p>
         </div>
 
         {/* Script Editor */}
         {editableScenes && editableScenes.length > 0 && !project && (
-          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/10">
+          <div className="glass-card p-6 sm:p-8 mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">📝 Edit Your Script</h2>
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                  <span className="text-3xl">📝</span> Edit Your Script
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">Customize the narration and visuals for each scene</p>
+              </div>
               <button
                 onClick={addScene}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+                className="px-5 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-all border border-white/10 hover:border-white/20"
               >
                 + Add Scene
               </button>
@@ -699,45 +718,47 @@ export default function Home() {
               {editableScenes.map((scene, index) => (
                 <div
                   key={index}
-                  className={`p-4 rounded-xl border transition-all ${
+                  className={`p-5 rounded-2xl border transition-all ${
                     editingIndex === index 
-                      ? 'border-purple-500 bg-purple-500/10' 
+                      ? 'border-purple-500/50 bg-purple-500/5' 
                       : 'border-white/10 bg-black/20'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="text-sm text-purple-400 font-medium">Scene {index + 1}</span>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="px-3 py-1 bg-purple-500/20 rounded-full text-sm text-purple-300 font-medium">
+                      Scene {index + 1}
+                    </span>
                     <button
                       onClick={() => deleteScene(index)}
                       disabled={editableScenes.length <= 2}
-                      className="text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed text-sm"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       title={editableScenes.length <= 2 ? 'Minimum 2 scenes required' : 'Delete scene'}
                     >
                       🗑️
                     </button>
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">Narration</label>
+                      <label className="text-sm text-gray-300 font-medium block mb-2">🎙️ Narration</label>
                       <textarea
                         value={scene.text}
                         onChange={(e) => updateSceneText(index, e.target.value)}
                         onFocus={() => setEditingIndex(index)}
                         onBlur={() => setEditingIndex(null)}
-                        className="w-full bg-black/30 rounded-lg p-3 text-sm text-white placeholder-gray-500 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                        className="input-glass text-sm"
                         rows={2}
                       />
                     </div>
                     
                     <div>
-                      <label className="text-xs text-gray-400 block mb-1">Image Prompt</label>
+                      <label className="text-sm text-gray-300 font-medium block mb-2">🎨 Image Prompt</label>
                       <textarea
                         value={scene.imagePrompt}
                         onChange={(e) => updateSceneImagePrompt(index, e.target.value)}
                         onFocus={() => setEditingIndex(index)}
                         onBlur={() => setEditingIndex(null)}
-                        className="w-full bg-black/30 rounded-lg p-3 text-sm text-white placeholder-gray-500 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                        className="input-glass text-sm"
                         rows={2}
                         placeholder="Describe what the AI should generate for this scene..."
                       />
@@ -747,19 +768,27 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="mt-6 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setEditableScenes(null)}
-                className="flex-1 py-3 border border-white/20 rounded-xl hover:bg-white/10 transition-all"
+                className="flex-1 py-4 border border-white/20 rounded-2xl hover:bg-white/5 transition-all font-medium"
               >
-                ← Back
+                ← Back to Settings
               </button>
               <button
                 onClick={handleGenerateVideo}
                 disabled={loading}
-                className="flex-2 py-3 px-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-500 hover:to-pink-500 transition-all"
+                className="btn-primary flex-1 sm:flex-[2] py-4 rounded-2xl text-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Generating...' : '🎬 Generate Video'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                    </svg>
+                    Creating Video...
+                  </span>
+                ) : '🎬 Generate Video'}
               </button>
             </div>
           </div>
@@ -767,38 +796,57 @@ export default function Home() {
 
         {/* Progress Section */}
         {project && (
-          <div className={`bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 ${project.status !== 'complete' && project.status !== 'error' ? 'animate-pulse-glow' : ''}`}>
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-medium">
-                {project.status === 'generating_script' && '📝 Writing script...'}
-                {project.status === 'generating_images' && '🎨 Creating visuals...'}
-                {project.status === 'generating_audio' && '🎙️ Recording voiceover...'}
-                {project.status === 'assembling' && '🎬 Assembling video...'}
-                {project.status === 'complete' && '✅ Complete!'}
-                {project.status === 'error' && '❌ Error'}
-              </span>
-              <span className="text-purple-400">{project.progress}%</span>
+          <div className={`glass-card p-6 sm:p-8 mb-8 ${project.status !== 'complete' && project.status !== 'error' ? 'animate-pulse-glow' : ''}`}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl ${
+                  project.status === 'complete' ? 'bg-green-500/20' : 
+                  project.status === 'error' ? 'bg-red-500/20' : 'bg-purple-500/20'
+                }`}>
+                  {project.status === 'generating_script' && '📝'}
+                  {project.status === 'generating_images' && '🎨'}
+                  {project.status === 'generating_audio' && '🎙️'}
+                  {project.status === 'assembling' && '🎬'}
+                  {project.status === 'complete' && '✅'}
+                  {project.status === 'error' && '❌'}
+                </div>
+                <div>
+                  <span className="font-semibold text-lg block">
+                    {project.status === 'generating_script' && 'Writing script...'}
+                    {project.status === 'generating_images' && 'Creating visuals...'}
+                    {project.status === 'generating_audio' && 'Recording voiceover...'}
+                    {project.status === 'assembling' && 'Assembling video...'}
+                    {project.status === 'complete' && 'Your video is ready!'}
+                    {project.status === 'error' && 'Something went wrong'}
+                  </span>
+                  <span className="text-gray-400 text-sm">
+                    {project.status !== 'complete' && project.status !== 'error' && 'This usually takes 1-2 minutes'}
+                  </span>
+                </div>
+              </div>
+              <span className="text-3xl font-bold text-purple-400">{project.progress}%</span>
             </div>
             
-            <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-4 bg-white/10 rounded-full overflow-hidden">
               <div
-                className="h-full progress-bar transition-all duration-500 rounded-full"
+                className="h-full progress-bar transition-all duration-500"
                 style={{ width: `${project.progress}%` }}
               />
             </div>
 
             {project.error && (
-              <div className="mt-4 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300">
-                {project.error}
+              <div className="mt-6 p-5 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-300">
+                <span className="font-medium">Error: </span>{project.error}
               </div>
             )}
 
-            {project.scenes && project.scenes.length > 0 && (
+            {project.scenes && project.scenes.length > 0 && project.status !== 'complete' && (
               <div className="mt-6">
-                <h3 className="font-medium mb-3">Generated Script:</h3>
+                <h3 className="font-semibold mb-4">📜 Generated Script</h3>
                 <div className="space-y-2 text-sm text-gray-300">
                   {project.scenes.map((scene, i) => (
-                    <p key={i} className="p-3 bg-black/20 rounded-lg">
+                    <p key={i} className="p-4 bg-black/30 rounded-xl border border-white/5">
+                      <span className="text-purple-400 font-medium mr-2">{i + 1}.</span>
                       {scene.text}
                     </p>
                   ))}
@@ -806,34 +854,36 @@ export default function Home() {
               </div>
             )}
 
-            {project.videoUrl && (
-              <div className="mt-6">
-                <h3 className="font-medium mb-3">
-                  {project.videoUrl.endsWith('.mp4') ? 'Your Video:' : 'Preview (Demo Mode):'}
-                </h3>
-                <div className="max-w-sm mx-auto">
+            {project.videoUrl && project.status === 'complete' && (
+              <div className="mt-8">
+                <div className="max-w-md mx-auto">
                   {project.videoUrl.endsWith('.mp4') ? (
                     <>
-                      <video 
-                        src={project.videoUrl} 
-                        controls
-                        autoPlay
-                        loop
-                        playsInline
-                        className="w-full rounded-lg shadow-2xl"
-                      />
-                      <div className="mt-4 space-y-3">
+                      <div className="video-preview">
+                        <video 
+                          src={project.videoUrl} 
+                          controls
+                          autoPlay
+                          loop
+                          playsInline
+                          className="w-full rounded-2xl shadow-2xl"
+                        />
+                      </div>
+                      <div className="mt-6 space-y-3">
                         <a
                           href={project.videoUrl}
                           download
-                          className="block w-full py-3 text-center bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold hover:from-green-500 hover:to-emerald-500 transition-all"
+                          className="block w-full py-4 text-center bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl font-bold text-lg hover:from-green-400 hover:to-emerald-400 transition-all shadow-lg shadow-green-500/20"
                         >
                           📥 Download Video
                         </a>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button
-                            onClick={() => navigator.clipboard.writeText(window.location.origin + project.videoUrl)}
-                            className="flex-1 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all text-sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(window.location.origin + project.videoUrl);
+                              alert('Link copied!');
+                            }}
+                            className="flex-1 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all font-medium"
                           >
                             📋 Copy Link
                           </button>
@@ -841,7 +891,7 @@ export default function Home() {
                             href={`https://twitter.com/intent/tweet?text=Check out this AI-generated video!&url=${encodeURIComponent(window.location.origin + (project.videoUrl || ''))}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all text-sm text-center"
+                            className="flex-1 py-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all font-medium text-center"
                           >
                             🐦 Share
                           </a>
@@ -850,10 +900,11 @@ export default function Home() {
                           onClick={() => {
                             setProject(null);
                             setTopic('');
+                            setEditableScenes(null);
                           }}
-                          className="w-full py-2 border border-white/20 rounded-lg hover:bg-white/10 transition-all text-sm"
+                          className="w-full py-3 border border-white/20 rounded-xl hover:bg-white/5 transition-all font-medium"
                         >
-                          ✨ Create Another
+                          ✨ Create Another Video
                         </button>
                       </div>
                     </>
@@ -861,25 +912,25 @@ export default function Home() {
                     <>
                       {project.imageUrls && project.imageUrls.length > 0 ? (
                         <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 gap-3">
                             {project.imageUrls.map((url, i) => (
                               <img 
                                 key={i}
                                 src={url} 
                                 alt={`Scene ${i + 1}`}
-                                className="w-full aspect-[9/16] object-cover rounded-lg"
+                                className="w-full aspect-[9/16] object-cover rounded-2xl"
                               />
                             ))}
                           </div>
-                          <div className="p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-200 text-sm">
-                            🎭 Demo Mode: Add API keys to generate real videos with AI voiceover
+                          <div className="p-5 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl text-yellow-200 text-sm">
+                            🎭 <span className="font-medium">Demo Mode:</span> Add API keys to generate real videos with AI voiceover
                           </div>
                         </div>
                       ) : (
                         <img 
                           src={project.videoUrl} 
                           alt="Preview" 
-                          className="w-full rounded-lg shadow-2xl"
+                          className="w-full rounded-2xl shadow-2xl"
                         />
                       )}
                     </>
@@ -891,29 +942,37 @@ export default function Home() {
         )}
 
         {/* Features */}
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="text-center p-6">
-            <div className="text-4xl mb-3">🎯</div>
-            <h3 className="font-bold mb-2">Hook-Driven</h3>
-            <p className="text-gray-400 text-sm">
-              AI writes scripts optimized for engagement
-            </p>
-          </div>
-          <div className="text-center p-6">
-            <div className="text-4xl mb-3">🎨</div>
-            <h3 className="font-bold mb-2">Stunning Visuals</h3>
-            <p className="text-gray-400 text-sm">
-              Generated images match your style perfectly
-            </p>
-          </div>
-          <div className="text-center p-6">
-            <div className="text-4xl mb-3">🚀</div>
-            <h3 className="font-bold mb-2">Fast & Easy</h3>
-            <p className="text-gray-400 text-sm">
-              From idea to video in under 2 minutes
-            </p>
+        <div className="mt-16 mb-12">
+          <div className="section-divider mb-12"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div className="text-center p-6 glass-card">
+              <div className="text-5xl mb-4 animate-float">🎯</div>
+              <h3 className="font-bold text-lg mb-2">Hook-Driven Scripts</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                AI writes scripts optimized for maximum engagement and watch time
+              </p>
+            </div>
+            <div className="text-center p-6 glass-card" style={{ animationDelay: '0.1s' }}>
+              <div className="text-5xl mb-4 animate-float" style={{ animationDelay: '0.2s' }}>🎨</div>
+              <h3 className="font-bold text-lg mb-2">Stunning Visuals</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Generated images perfectly match your chosen style and story
+              </p>
+            </div>
+            <div className="text-center p-6 glass-card" style={{ animationDelay: '0.2s' }}>
+              <div className="text-5xl mb-4 animate-float" style={{ animationDelay: '0.4s' }}>🚀</div>
+              <h3 className="font-bold text-lg mb-2">Fast & Easy</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                From idea to finished video in under 2 minutes
+              </p>
+            </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <footer className="text-center py-8 text-gray-500 text-sm">
+          <p>Built with AI • No camera required</p>
+        </footer>
       </div>
     </main>
   );

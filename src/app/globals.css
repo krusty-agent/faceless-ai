@@ -4,30 +4,175 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 15, 25;
-  --background-end-rgb: 30, 20, 50;
+  --background-start: #0a0a0f;
+  --background-end: #1a1025;
+  --accent-purple: #a855f7;
+  --accent-pink: #ec4899;
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-hover: rgba(255, 255, 255, 0.06);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-    to bottom,
-    rgb(var(--background-start-rgb)),
-    rgb(var(--background-end-rgb))
-  );
+  background: var(--background-start);
   min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Animated gradient background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Noise texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: -1;
 }
 
 @layer utilities {
   .gradient-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-purple-400;
+    background-size: 200% auto;
+    animation: gradient-shift 3s ease infinite;
   }
+  
+  .gradient-text-blue {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-blue-400;
+  }
+}
+
+/* Gradient animation */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+
+/* Glass card effect */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.glass-card:hover {
+  background: var(--glass-hover);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Button styles */
+.btn-primary {
+  @apply relative overflow-hidden font-semibold;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+  transition: all 0.3s ease;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before {
+  left: 100%;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px -10px rgba(168, 85, 247, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  @apply relative overflow-hidden font-semibold;
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px -10px rgba(59, 130, 246, 0.5);
+}
+
+/* Input styles */
+.input-glass {
+  @apply w-full bg-black/20 rounded-2xl p-4 text-white placeholder-gray-500 transition-all duration-300;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-glass:focus {
+  @apply outline-none;
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.1), 0 0 20px rgba(168, 85, 247, 0.1);
+}
+
+/* Selection button */
+.select-btn {
+  @apply p-4 rounded-2xl border transition-all duration-300 cursor-pointer;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.select-btn:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.select-btn.active {
+  border-color: var(--accent-purple);
+  background: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
 }
 
 /* Loading animations */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.4); }
-  50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.8); }
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3),
+                0 0 40px rgba(168, 85, 247, 0.1);
+  }
+  50% { 
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.5),
+                0 0 60px rgba(168, 85, 247, 0.2);
+  }
 }
 
 @keyframes shimmer {
@@ -35,19 +180,135 @@ body {
   100% { background-position: 200% 0; }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-/* Progress bar animation */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Progress bar */
 .progress-bar {
-  background: linear-gradient(90deg, #a855f7, #ec4899, #a855f7);
+  background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink), var(--accent-purple));
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
+  border-radius: 999px;
+}
+
+/* Video hover effect */
+.video-preview {
+  @apply relative overflow-hidden rounded-2xl;
+  transition: all 0.3s ease;
+}
+
+.video-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 40px -20px rgba(168, 85, 247, 0.3);
+}
+
+.video-preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.video-preview:hover::after {
+  opacity: 1;
+}
+
+/* Template card */
+.template-card {
+  @apply relative overflow-hidden;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.3s ease;
+}
+
+.template-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-purple), var(--accent-pink));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.template-card:hover {
+  border-color: rgba(168, 85, 247, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -20px rgba(168, 85, 247, 0.2);
+}
+
+.template-card:hover::before {
+  opacity: 1;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--accent-purple);
+  outline-offset: 2px;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.2));
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute z-50 px-3 py-2 text-sm rounded-lg;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Section divider */
+.section-divider {
+  @apply my-8 border-0 h-px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
 }
