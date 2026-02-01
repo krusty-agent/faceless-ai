@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const EXAMPLE_TOPICS = [
   "The mysterious disappearance of the Mayan civilization",
@@ -49,6 +49,78 @@ const DURATIONS = [
   { id: 'long', name: '~90s', scenes: 8, desc: '8 scenes' },
 ];
 
+const CAPTION_STYLES = [
+  { id: 'default', name: 'Classic', desc: 'White with shadow', font: 'Arial', color: '#FFFFFF', outline: '#000000', position: 'bottom' },
+  { id: 'bold', name: 'Bold', desc: 'Yellow, impactful', font: 'Impact', color: '#FFFF00', outline: '#000000', position: 'bottom' },
+  { id: 'minimal', name: 'Minimal', desc: 'Subtle white', font: 'Helvetica', color: '#FFFFFF', outline: 'none', position: 'bottom' },
+  { id: 'neon', name: 'Neon', desc: 'Cyan glow', font: 'Arial', color: '#00FFFF', outline: '#FF00FF', position: 'bottom' },
+  { id: 'horror', name: 'Horror', desc: 'Red, dripping', font: 'Georgia', color: '#FF0000', outline: '#000000', position: 'center' },
+  { id: 'retro', name: 'Retro', desc: 'Orange VHS', font: 'Courier', color: '#FFA500', outline: '#000000', position: 'top' },
+];
+
+const TEMPLATES = [
+  { 
+    id: 'mystery', 
+    name: '🔮 Mystery',
+    desc: 'Unsolved mysteries & conspiracies',
+    style: 'horror',
+    voice: 'josh',
+    music: 'mysterious',
+    captionStyle: 'horror',
+    prompt: 'Create a mysterious, suspenseful story about'
+  },
+  { 
+    id: 'facts', 
+    name: '🧠 Facts',
+    desc: '5 surprising facts format',
+    style: 'documentary',
+    voice: 'adam',
+    music: 'upbeat',
+    captionStyle: 'bold',
+    prompt: 'List 5 mind-blowing facts about'
+  },
+  { 
+    id: 'story', 
+    name: '📖 Story',
+    desc: 'Emotional narrative',
+    style: 'realistic',
+    voice: 'sarah',
+    music: 'calm',
+    captionStyle: 'minimal',
+    prompt: 'Tell an emotional story about'
+  },
+  { 
+    id: 'horror', 
+    name: '👻 Horror',
+    desc: 'Creepy short horror',
+    style: 'horror',
+    voice: 'drew',
+    music: 'mysterious',
+    captionStyle: 'horror',
+    prompt: 'Tell a terrifying horror story about'
+  },
+  { 
+    id: 'explainer', 
+    name: '💡 Explainer',
+    desc: 'How things work',
+    style: 'minimalist',
+    voice: 'rachel',
+    music: 'none',
+    captionStyle: 'default',
+    prompt: 'Explain in simple terms how'
+  },
+  { 
+    id: 'anime', 
+    name: '🎌 Anime',
+    desc: 'Epic anime style',
+    style: 'anime',
+    voice: 'elli',
+    music: 'dramatic-orchestral',
+    captionStyle: 'neon',
+    prompt: 'Create an epic anime-style story about'
+  },
+];
+
 interface Scene {
   text: string;
   imagePrompt: string;
@@ -59,8 +131,10 @@ interface Project {
   id: string;
   status: string;
   progress: number;
+  topic?: string;
   scenes?: Scene[];
   videoUrl?: string;
+  thumbnailUrl?: string;
   imageUrls?: string[];
   error?: string;
 }
@@ -81,6 +155,52 @@ export default function Home() {
   const [editableScenes, setEditableScenes] = useState<Scene[] | null>(null);
   const [scriptLoading, setScriptLoading] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  
+  // New features
+  const [captionStyle, setCaptionStyle] = useState('default');
+  const [showHistory, setShowHistory] = useState(false);
+  const [videoHistory, setVideoHistory] = useState<Project[]>([]);
+
+  // Apply template
+  const applyTemplate = (templateId: string) => {
+    const template = TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+    
+    setStyle(template.style);
+    setVoice(template.voice);
+    setMusic(template.music);
+    setCaptionStyle(template.captionStyle);
+    
+    // Update topic if empty
+    if (!topic.trim()) {
+      setTopic(template.prompt + ' ');
+    }
+  };
+
+  // Save to history when video completes
+  const saveToHistory = (completedProject: Project) => {
+    setVideoHistory(prev => [completedProject, ...prev].slice(0, 20)); // Keep last 20
+    // Also save to localStorage
+    try {
+      const history = JSON.parse(localStorage.getItem('videoHistory') || '[]');
+      history.unshift(completedProject);
+      localStorage.setItem('videoHistory', JSON.stringify(history.slice(0, 20)));
+    } catch (e) {
+      console.error('Failed to save history:', e);
+    }
+  };
+
+  // Load history on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('videoHistory');
+      if (saved) {
+        setVideoHistory(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to load history:', e);
+    }
+  }, []);
 
   const playVoicePreview = async (voiceId: string) => {
     // Stop any currently playing audio
@@ -172,6 +292,7 @@ export default function Home() {
           music, 
           aspectRatio, 
           duration,
+          captionStyle,
           scenes: editableScenes // Pass the edited scenes
         }),
       });
@@ -198,7 +319,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic, style, voice, music, aspectRatio, duration }),
+        body: JSON.stringify({ topic, style, voice, music, aspectRatio, duration, captionStyle }),
       });
       
       const data = await res.json();
@@ -249,7 +370,10 @@ export default function Home() {
         const data = await res.json();
         setProject(data);
         
-        if (data.status === 'complete' || data.status === 'error') {
+        if (data.status === 'complete') {
+          setLoading(false);
+          saveToHistory(data);
+        } else if (data.status === 'error') {
           setLoading(false);
         } else {
           setTimeout(poll, 2000);
@@ -267,13 +391,84 @@ export default function Home() {
     <main className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-5xl font-bold mb-4 gradient-text">
             Faceless AI
           </h1>
           <p className="text-xl text-gray-400">
             Create viral TikTok & YouTube videos in seconds. No camera needed.
           </p>
+          {/* History toggle */}
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+          >
+            📚 {showHistory ? 'Hide' : 'Show'} History ({videoHistory.length})
+          </button>
+        </div>
+
+        {/* Video History */}
+        {showHistory && videoHistory.length > 0 && (
+          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10">
+            <h2 className="text-lg font-bold mb-4">📚 Recent Videos</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {videoHistory.slice(0, 8).map((vid, i) => (
+                <div key={i} className="relative group">
+                  {vid.videoUrl?.endsWith('.mp4') ? (
+                    <video
+                      src={vid.videoUrl}
+                      className="w-full aspect-[9/16] object-cover rounded-lg"
+                      muted
+                      onMouseEnter={(e) => e.currentTarget.play()}
+                      onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                    />
+                  ) : vid.imageUrls?.[0] ? (
+                    <img
+                      src={vid.imageUrls[0]}
+                      alt="Preview"
+                      className="w-full aspect-[9/16] object-cover rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-full aspect-[9/16] bg-white/10 rounded-lg flex items-center justify-center">
+                      🎬
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all rounded-lg flex flex-col items-center justify-center gap-2">
+                    {vid.videoUrl?.endsWith('.mp4') && (
+                      <a
+                        href={vid.videoUrl}
+                        download
+                        className="px-3 py-1 bg-purple-500 rounded text-sm"
+                      >
+                        📥 Download
+                      </a>
+                    )}
+                    <span className="text-xs text-gray-300 px-2 text-center">
+                      {vid.topic?.slice(0, 30)}...
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Templates */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10">
+          <h2 className="text-lg font-bold mb-4">⚡ Quick Templates</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => applyTemplate(t.id)}
+                className="p-3 rounded-xl border border-white/10 hover:border-purple-500 hover:bg-purple-500/10 transition-all text-left"
+              >
+                <div className="text-xl mb-1">{t.name.split(' ')[0]}</div>
+                <div className="text-sm font-medium">{t.name.split(' ').slice(1).join(' ')}</div>
+                <div className="text-xs text-gray-400">{t.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Input Section */}
@@ -375,6 +570,35 @@ export default function Home() {
                 >
                   <div className="text-2xl mb-1">{m.emoji}</div>
                   <div className="text-xs">{m.name}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Caption Style */}
+          <div className="mt-6">
+            <label className="block text-lg font-medium mb-3">Caption Style</label>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+              {CAPTION_STYLES.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCaptionStyle(c.id)}
+                  className={`p-3 rounded-xl border transition-all ${
+                    captionStyle === c.id
+                      ? 'border-purple-500 bg-purple-500/20'
+                      : 'border-white/10 hover:border-white/30'
+                  }`}
+                >
+                  <div 
+                    className="text-sm font-bold mb-1"
+                    style={{ 
+                      color: c.color,
+                      textShadow: c.outline !== 'none' ? `2px 2px 0 ${c.outline}` : 'none'
+                    }}
+                  >
+                    Aa
+                  </div>
+                  <div className="text-xs">{c.name}</div>
                 </button>
               ))}
             </div>

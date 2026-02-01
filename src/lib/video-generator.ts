@@ -84,10 +84,12 @@ export interface VideoProject {
   music: string;
   aspectRatio: string;
   duration: string;
+  captionStyle: string;
   scenes: VideoScene[];
   status: 'pending' | 'generating_script' | 'generating_images' | 'generating_audio' | 'assembling' | 'complete' | 'error';
   progress: number;
   videoUrl?: string;
+  thumbnailUrl?: string;
   imageUrls?: string[];
   error?: string;
 }
@@ -256,6 +258,7 @@ export async function createVideoProject(
   music: string = 'none',
   aspectRatio: string = '9:16',
   duration: string = 'medium',
+  captionStyle: string = 'default',
   preGeneratedScenes?: VideoScene[]
 ): Promise<string> {
   const id = uuidv4();
@@ -268,6 +271,7 @@ export async function createVideoProject(
     music,
     aspectRatio,
     duration,
+    captionStyle,
     scenes: preGeneratedScenes || [],
     status: 'pending',
     progress: 0,
@@ -338,6 +342,7 @@ async function processVideo(id: string, preGeneratedScenes?: VideoScene[]): Prom
       // Store image URLs for preview carousel
       project.imageUrls = imageUrls;
       project.videoUrl = imageUrls[0]; // First image as placeholder
+      project.thumbnailUrl = imageUrls[0]; // Use first image as thumbnail
     } else {
       const scenesWithUrls = project.scenes.map((scene, i) => ({
         imageUrl: imageUrls[i],
@@ -353,11 +358,14 @@ async function processVideo(id: string, preGeneratedScenes?: VideoScene[]): Prom
         width: aspectConfig.width,
         height: aspectConfig.height,
         addCaptions: true,
+        captionStyle: project.captionStyle,
         musicUrl,
         musicVolume: 0.15, // Background music at 15% volume
+        generateThumbnail: true,
       });
       
       project.videoUrl = result.videoPath;
+      project.thumbnailUrl = result.thumbnailPath;
     }
     project.progress = 100;
     project.status = 'complete';

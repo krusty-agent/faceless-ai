@@ -15,8 +15,25 @@ export interface AssemblyScene {
 
 export interface AssemblyResult {
   videoPath: string;
+  thumbnailPath?: string;
   duration: number;
 }
+
+export interface CaptionStyleConfig {
+  font: string;
+  color: string;
+  outline: string;
+  position: 'top' | 'center' | 'bottom';
+}
+
+export const CAPTION_STYLES: Record<string, CaptionStyleConfig> = {
+  default: { font: 'Arial', color: '#FFFFFF', outline: '#000000', position: 'bottom' },
+  bold: { font: 'Impact', color: '#FFFF00', outline: '#000000', position: 'bottom' },
+  minimal: { font: 'Helvetica', color: '#FFFFFF', outline: 'none', position: 'bottom' },
+  neon: { font: 'Arial', color: '#00FFFF', outline: '#FF00FF', position: 'bottom' },
+  horror: { font: 'Georgia', color: '#FF0000', outline: '#000000', position: 'center' },
+  retro: { font: 'Courier', color: '#FFA500', outline: '#000000', position: 'top' },
+};
 
 /**
  * Download a file from URL to local path
@@ -54,9 +71,44 @@ function calculateSceneTiming(scenes: { text: string; duration: number }[], tota
 }
 
 /**
+ * Convert hex color to ASS color format (&HAABBGGRR)
+ */
+function hexToAssColor(hex: string): string {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  // Convert RGB to BGR for ASS format
+  const r = hex.substring(0, 2);
+  const g = hex.substring(2, 4);
+  const b = hex.substring(4, 6);
+  return `&H00${b}${g}${r}`.toUpperCase();
+}
+
+/**
+ * Get alignment value for ASS (numpad style: 1-9)
+ */
+function getAlignment(position: 'top' | 'center' | 'bottom'): number {
+  switch (position) {
+    case 'top': return 8; // Top center
+    case 'center': return 5; // Middle center
+    case 'bottom': return 2; // Bottom center
+  }
+}
+
+/**
  * Generate ASS subtitle file for captions
  */
-function generateSubtitles(scenes: AssemblyScene[]): string {
+function generateSubtitles(scenes: AssemblyScene[], captionStyle: string = 'default'): string {
+  const style = CAPTION_STYLES[captionStyle] || CAPTION_STYLES.default;
+  
+  const primaryColor = hexToAssColor(style.color);
+  const outlineColor = style.outline === 'none' ? '&H00000000' : hexToAssColor(style.outline);
+  const outlineWidth = style.outline === 'none' ? 0 : 4;
+  const alignment = getAlignment(style.position);
+  const marginV = style.position === 'center' ? 0 : 80;
+  
   const header = `[Script Info]
 Title: AI Generated Video
 ScriptType: v4.00+
@@ -66,7 +118,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,72,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,4,2,2,40,40,80,1
+Style: Default,${style.font},72,${primaryColor},&H000000FF,${outlineColor},&H80000000,-1,0,0,0,100,100,0,0,1,${outlineWidth},2,${alignment},40,40,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -105,16 +157,20 @@ export async function assembleVideo(
     height?: number;
     outputPath?: string;
     addCaptions?: boolean;
+    captionStyle?: string;
     musicUrl?: string;
     musicVolume?: number; // 0.0 to 1.0
+    generateThumbnail?: boolean;
   } = {}
 ): Promise<AssemblyResult> {
   const {
     width = 1080,
     height = 1920,
     addCaptions = true,
+    captionStyle = 'default',
     musicUrl,
     musicVolume = 0.2, // Background music at 20% volume by default
+    generateThumbnail = true,
   } = options;
 
   // Create temp directory
@@ -158,7 +214,7 @@ export async function assembleVideo(
     let subtitlePath = '';
     if (addCaptions) {
       subtitlePath = path.join(tempDir, 'captions.ass');
-      const subtitles = generateSubtitles(timedScenes);
+      const subtitles = generateSubtitles(timedScenes, captionStyle);
       await fs.writeFile(subtitlePath, subtitles);
     }
 
@@ -213,8 +269,24 @@ export async function assembleVideo(
 
     await execAsync(ffmpegCmd);
 
+    // Generate thumbnail from first frame
+    let thumbnailPath: string | undefined;
+    if (generateThumbnail) {
+      try {
+        const thumbnailFilename = `thumb-${Date.now()}.jpg`;
+        const thumbnailFullPath = path.join(outputDir, thumbnailFilename);
+        await execAsync(
+          `ffmpeg -y -i "${outputPath}" -ss 00:00:01 -vframes 1 -q:v 2 "${thumbnailFullPath}"`
+        );
+        thumbnailPath = `/videos/${thumbnailFilename}`;
+      } catch (e) {
+        console.error('Failed to generate thumbnail:', e);
+      }
+    }
+
     return {
       videoPath: `/videos/${outputFilename}`,
+      thumbnailPath,
       duration: audioDuration,
     };
 

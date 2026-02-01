@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
       music = 'none',
       aspectRatio = '9:16',
       duration = 'medium',
+      captionStyle = 'default',
       scenes // Optional: pre-made scenes from script editor
     } = body;
     
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       music, 
       aspectRatio, 
       duration,
+      captionStyle,
       validatedScenes
     );
     
