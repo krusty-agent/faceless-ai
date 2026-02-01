@@ -255,7 +255,8 @@ export async function createVideoProject(
   voice: string, 
   music: string = 'none',
   aspectRatio: string = '9:16',
-  duration: string = 'medium'
+  duration: string = 'medium',
+  preGeneratedScenes?: VideoScene[]
 ): Promise<string> {
   const id = uuidv4();
   
@@ -267,7 +268,7 @@ export async function createVideoProject(
     music,
     aspectRatio,
     duration,
-    scenes: [],
+    scenes: preGeneratedScenes || [],
     status: 'pending',
     progress: 0,
   };
@@ -275,7 +276,7 @@ export async function createVideoProject(
   projects.set(id, project);
   
   // Start generation in background
-  processVideo(id).catch(err => {
+  processVideo(id, preGeneratedScenes).catch(err => {
     const p = projects.get(id);
     if (p) {
       p.status = 'error';
@@ -286,7 +287,7 @@ export async function createVideoProject(
   return id;
 }
 
-async function processVideo(id: string): Promise<void> {
+async function processVideo(id: string, preGeneratedScenes?: VideoScene[]): Promise<void> {
   const project = projects.get(id);
   if (!project) throw new Error('Project not found');
   
@@ -295,11 +296,18 @@ async function processVideo(id: string): Promise<void> {
   const numScenes = DURATION_SCENES[project.duration] || 6;
   
   try {
-    // Step 1: Generate script
-    project.status = 'generating_script';
-    project.progress = 10;
-    project.scenes = await generateScript(project.topic, project.style, numScenes);
-    project.progress = 20;
+    // Step 1: Generate script (or use pre-generated scenes)
+    if (preGeneratedScenes && preGeneratedScenes.length > 0) {
+      project.status = 'generating_script';
+      project.progress = 10;
+      project.scenes = preGeneratedScenes;
+      project.progress = 20;
+    } else {
+      project.status = 'generating_script';
+      project.progress = 10;
+      project.scenes = await generateScript(project.topic, project.style, numScenes);
+      project.progress = 20;
+    }
     
     // Step 2: Generate images for each scene
     project.status = 'generating_images';

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createVideoProject } from '@/lib/video-generator';
+import { createVideoProject, VideoScene } from '@/lib/video-generator';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
       voice = 'rachel', 
       music = 'none',
       aspectRatio = '9:16',
-      duration = 'medium'
+      duration = 'medium',
+      scenes // Optional: pre-made scenes from script editor
     } = body;
     
     if (!topic) {
@@ -20,7 +21,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const projectId = await createVideoProject(topic, style, voice, music, aspectRatio, duration);
+    // Validate scenes if provided
+    const validatedScenes: VideoScene[] | undefined = scenes ? 
+      scenes.map((s: { text: string; imagePrompt: string; duration?: number }) => ({
+        text: s.text,
+        imagePrompt: s.imagePrompt,
+        duration: s.duration || 6
+      })) : undefined;
+    
+    const projectId = await createVideoProject(
+      topic, 
+      style, 
+      voice, 
+      music, 
+      aspectRatio, 
+      duration,
+      validatedScenes
+    );
     
     return NextResponse.json({ 
       success: true, 

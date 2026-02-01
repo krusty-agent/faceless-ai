@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const EXAMPLE_TOPICS = [
   "The mysterious disappearance of the Mayan civilization",
@@ -49,11 +49,17 @@ const DURATIONS = [
   { id: 'long', name: '~90s', scenes: 8, desc: '8 scenes' },
 ];
 
+interface Scene {
+  text: string;
+  imagePrompt: string;
+  duration?: number;
+}
+
 interface Project {
   id: string;
   status: string;
   progress: number;
-  scenes?: { text: string; imagePrompt: string }[];
+  scenes?: Scene[];
   videoUrl?: string;
   imageUrls?: string[];
   error?: string;
@@ -68,17 +74,125 @@ export default function Home() {
   const [duration, setDuration] = useState('medium');
   const [loading, setLoading] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
+  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Script editing state
+  const [editableScenes, setEditableScenes] = useState<Scene[] | null>(null);
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  const playVoicePreview = async (voiceId: string) => {
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    
+    if (playingVoice === voiceId) {
+      setPlayingVoice(null);
+      return;
+    }
+    
+    setPlayingVoice(voiceId);
+    
+    try {
+      const audio = new Audio(`/api/voice-preview?voice=${voiceId}`);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayingVoice(null);
+        audioRef.current = null;
+      };
+      
+      audio.onerror = () => {
+        setPlayingVoice(null);
+        audioRef.current = null;
+      };
+      
+      await audio.play();
+    } catch (err) {
+      console.error('Failed to play voice preview:', err);
+      setPlayingVoice(null);
+    }
+  };
 
   // Calculate estimated cost
   const selectedDuration = DURATIONS.find(d => d.id === duration);
   const numScenes = selectedDuration?.scenes || 6;
   const estimatedCost = (0.01 + (numScenes * 0.04) + 0.03).toFixed(2); // Script + images + voice
 
+  // Step 1: Generate script only (for editing)
+  const handleGenerateScript = async () => {
+    if (!topic.trim()) return;
+    
+    setScriptLoading(true);
+    setEditableScenes(null);
+    setProject(null);
+    
+    const selectedDuration = DURATIONS.find(d => d.id === duration);
+    const numScenes = selectedDuration?.scenes || 6;
+    
+    try {
+      const res = await fetch('/api/generate-script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, style, numScenes }),
+      });
+      
+      const data = await res.json();
+      if (data.scenes) {
+        setEditableScenes(data.scenes);
+      } else if (data.error) {
+        alert('Failed to generate script: ' + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to generate script');
+    } finally {
+      setScriptLoading(false);
+    }
+  };
+
+  // Step 2: Generate video with edited script
+  const handleGenerateVideo = async () => {
+    if (!editableScenes || editableScenes.length === 0) return;
+    
+    setLoading(true);
+    setProject(null);
+    
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          topic, 
+          style, 
+          voice, 
+          music, 
+          aspectRatio, 
+          duration,
+          scenes: editableScenes // Pass the edited scenes
+        }),
+      });
+      
+      const data = await res.json();
+      if (data.projectId) {
+        pollStatus(data.projectId);
+      }
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  // Legacy: Direct generation (skipping script edit)
   const handleGenerate = async () => {
     if (!topic.trim()) return;
     
     setLoading(true);
     setProject(null);
+    setEditableScenes(null);
     
     try {
       const res = await fetch('/api/generate', {
@@ -95,6 +209,37 @@ export default function Home() {
       console.error(err);
       setLoading(false);
     }
+  };
+
+  // Update a scene's text
+  const updateSceneText = (index: number, newText: string) => {
+    if (!editableScenes) return;
+    const updated = [...editableScenes];
+    updated[index] = { ...updated[index], text: newText };
+    setEditableScenes(updated);
+  };
+
+  // Update a scene's image prompt
+  const updateSceneImagePrompt = (index: number, newPrompt: string) => {
+    if (!editableScenes) return;
+    const updated = [...editableScenes];
+    updated[index] = { ...updated[index], imagePrompt: newPrompt };
+    setEditableScenes(updated);
+  };
+
+  // Delete a scene
+  const deleteScene = (index: number) => {
+    if (!editableScenes || editableScenes.length <= 2) return; // Keep at least 2 scenes
+    setEditableScenes(editableScenes.filter((_, i) => i !== index));
+  };
+
+  // Add a new scene
+  const addScene = () => {
+    if (!editableScenes) return;
+    setEditableScenes([
+      ...editableScenes,
+      { text: 'New scene narration...', imagePrompt: 'Describe the visual for this scene', duration: 5 }
+    ]);
   };
 
   const pollStatus = async (projectId: string) => {
@@ -177,21 +322,39 @@ export default function Home() {
 
           {/* Voice Selection */}
           <div className="mt-6">
-            <label className="block text-lg font-medium mb-3">Voice</label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <label className="block text-lg font-medium mb-3">Voice <span className="text-sm font-normal text-gray-400">(click 🔊 to preview)</span></label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {VOICES.map((v) => (
-                <button
+                <div
                   key={v.id}
-                  onClick={() => setVoice(v.id)}
-                  className={`p-3 rounded-xl border transition-all ${
+                  className={`p-3 rounded-xl border transition-all flex items-center justify-between ${
                     voice === v.id
                       ? 'border-purple-500 bg-purple-500/20'
                       : 'border-white/10 hover:border-white/30'
                   }`}
                 >
-                  <div className="font-medium">{v.name}</div>
-                  <div className="text-xs text-gray-400">{v.desc}</div>
-                </button>
+                  <button
+                    onClick={() => setVoice(v.id)}
+                    className="flex-1 text-left"
+                  >
+                    <div className="font-medium">{v.name}</div>
+                    <div className="text-xs text-gray-400">{v.desc}</div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playVoicePreview(v.id);
+                    }}
+                    className={`ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                      playingVoice === v.id 
+                        ? 'bg-purple-500 text-white' 
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                    title={`Preview ${v.name}'s voice`}
+                  >
+                    {playingVoice === v.id ? '⏹' : '🔊'}
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -273,15 +436,110 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Generate Button */}
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !topic.trim()}
-            className="mt-8 w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-500 hover:to-pink-500 transition-all"
-          >
-            {loading ? 'Generating...' : '✨ Generate Video'}
-          </button>
+          {/* Generate Buttons */}
+          <div className="mt-8 flex gap-3">
+            <button
+              onClick={handleGenerateScript}
+              disabled={loading || scriptLoading || !topic.trim()}
+              className="flex-1 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-blue-500 hover:to-cyan-500 transition-all"
+            >
+              {scriptLoading ? '✍️ Writing...' : '✍️ Generate Script'}
+            </button>
+            <button
+              onClick={handleGenerate}
+              disabled={loading || scriptLoading || !topic.trim()}
+              className="flex-1 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-500 hover:to-pink-500 transition-all"
+            >
+              {loading ? 'Generating...' : '⚡ Quick Generate'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            💡 Use "Generate Script" to preview and edit before creating video
+          </p>
         </div>
+
+        {/* Script Editor */}
+        {editableScenes && editableScenes.length > 0 && !project && (
+          <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 mb-8 border border-white/10">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">📝 Edit Your Script</h2>
+              <button
+                onClick={addScene}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
+              >
+                + Add Scene
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {editableScenes.map((scene, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-xl border transition-all ${
+                    editingIndex === index 
+                      ? 'border-purple-500 bg-purple-500/10' 
+                      : 'border-white/10 bg-black/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-sm text-purple-400 font-medium">Scene {index + 1}</span>
+                    <button
+                      onClick={() => deleteScene(index)}
+                      disabled={editableScenes.length <= 2}
+                      className="text-red-400 hover:text-red-300 disabled:opacity-30 disabled:cursor-not-allowed text-sm"
+                      title={editableScenes.length <= 2 ? 'Minimum 2 scenes required' : 'Delete scene'}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">Narration</label>
+                      <textarea
+                        value={scene.text}
+                        onChange={(e) => updateSceneText(index, e.target.value)}
+                        onFocus={() => setEditingIndex(index)}
+                        onBlur={() => setEditingIndex(null)}
+                        className="w-full bg-black/30 rounded-lg p-3 text-sm text-white placeholder-gray-500 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                        rows={2}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs text-gray-400 block mb-1">Image Prompt</label>
+                      <textarea
+                        value={scene.imagePrompt}
+                        onChange={(e) => updateSceneImagePrompt(index, e.target.value)}
+                        onFocus={() => setEditingIndex(index)}
+                        onBlur={() => setEditingIndex(null)}
+                        className="w-full bg-black/30 rounded-lg p-3 text-sm text-white placeholder-gray-500 border border-white/10 focus:border-purple-500 focus:outline-none resize-none"
+                        rows={2}
+                        placeholder="Describe what the AI should generate for this scene..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setEditableScenes(null)}
+                className="flex-1 py-3 border border-white/20 rounded-xl hover:bg-white/10 transition-all"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handleGenerateVideo}
+                disabled={loading}
+                className="flex-2 py-3 px-8 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-500 hover:to-pink-500 transition-all"
+              >
+                {loading ? 'Generating...' : '🎬 Generate Video'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Progress Section */}
         {project && (
